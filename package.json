@@ -9,7 +9,7 @@
     "docker-pull": "docker-pull.sh",
     "docker-push": "docker-push.sh",
     "prepare-kubectl": "prepare-kubectl.sh",
-    "run-migrations": "run-migrations.sh",
+    "run-migrations": "run-migrations.sh"
   }
 
 }
