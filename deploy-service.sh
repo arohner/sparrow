@@ -18,6 +18,15 @@
 # $2 = directory that contains your kubernetes files to deploy
 # $3 = pass in rolling to perform a rolling update
 
+# Uses environment variables:
+# SERVICENAME: name of the kube service, and default name for all kube files
+# IMAGE_REPO name of the docker image to sed when updating version
+# IMAGE_TAG name of the *existing* version tag to replace in the deployment. Will be replaced with the contents of $BUILD
+# CONFIGMAP path to the configmap.yml, kube/${CONFIGMAP}.configmap.yml, defaults to SERVICENAME
+# DEPLOYMENT path to the deployment.yml kube/${DEPLOYMENT}.deployment.yml, defaults to SERVICENAME
+# BUILD docker image tag to be deployed.
+
+
 set -euo pipefail
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
