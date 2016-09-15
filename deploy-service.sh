@@ -18,74 +18,83 @@
 # $2 = directory that contains your kubernetes files to deploy
 # $3 = pass in rolling to perform a rolling update
 
+set -euo pipefail
+
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 CONTEXT="$1"
-DEPLOYDIR="$2"
-ROLLING=$(echo "${3:0:7}" | tr '[:upper:]' '[:lower:]')
+ROLLING=$(echo "${2:0:7}" | tr '[:upper:]' '[:lower:]')
+CONFIGMAP=${CONFIGMAP:-${SERVICENAME}}
+DEPLOYMENT=${DEPLOYMENT:-${SERVICENAME}}
 
-#make sure we have the kubectl comand
-# chmod +x $DIR/ensure-kubectl.sh
-# $DIR/ensure-kubectl.sh
-
-#set config context
-kubectl config use-context ${CONTEXT}
-kubectl version
+~/.kube/kubectl version
+~/.kube/kubectl config use-context ${CONTEXT}
 
 #get user, password, certs, namespace and api ip from config data
-export kubepass=`(kubectl config view -o json --raw --minify  | jq .users[0].user.password | tr -d '\"')`
+export kubepass=`(~/.kube/kubectl config view -o json --raw --minify  | jq .users[0].user.password | tr -d '\"')`
 
-export kubeuser=`(kubectl config view -o json --raw --minify  | jq .users[0].user.username | tr -d '\"')`
+export kubeuser=`(~/.kube/kubectl config view -o json --raw --minify  | jq .users[0].user.username | tr -d '\"')`
 
-export kubeurl=`(kubectl config view -o json --raw --minify  | jq .clusters[0].cluster.server | tr -d '\"')`
+export kubeurl=`(~/.kube/kubectl config view -o json --raw --minify  | jq .clusters[0].cluster.server | tr -d '\"')`
 
-export kubenamespace=`(kubectl config view -o json --raw --minify  | jq .contexts[0].context.namespace | tr -d '\"')`
+export kubenamespace=`(~/.kube/kubectl config view -o json --raw --minify  | jq .contexts[0].context.namespace | tr -d '\"')`
 
 export kubeip=`(echo $kubeurl | sed 's~http[s]*://~~g')`
 
 export https=`(echo $kubeurl | awk 'BEGIN { FS = ":" } ; { print $1 }')`
 
-export certdata=`(kubectl config view -o json --raw --minify  | jq '.users[0].user["client-certificate-data"]' | tr -d '\"')`
+export certdata=`(~/.kube/kubectl config view -o json --raw --minify  | jq '.users[0].user["client-certificate-data"]' | tr -d '\"')`
 
 export certcmd=""
 
+echo "rolling = $ROLLING"
+
 if [ "$certdata" != "null" ] && [ "$certdata" != "" ];
 then
-    kubectl config view -o json --raw --minify  | jq '.users[0].user["client-certificate-data"]' | tr -d '\"' | base64 --decode > ${CONTEXT}-cert.pem
+    ~/.kube/kubectl config view -o json --raw --minify  | jq '.users[0].user["client-certificate-data"]' | tr -d '\"' | base64 --decode > ${CONTEXT}-cert.pem
     export certcmd="$certcmd --cert ${CONTEXT}-cert.pem"
 fi
 
-export keydata=`(kubectl config view -o json --raw --minify  | jq '.users[0].user["client-key-data"]' | tr -d '\"')`
+export keydata=`(~/.kube/kubectl config view -o json --raw --minify  | jq '.users[0].user["client-key-data"]' | tr -d '\"')`
 
 if [ "$keydata" != "null" ] && [ "$keydata" != "" ];
 then
-    kubectl config view -o json --raw --minify  | jq '.users[0].user["client-key-data"]' | tr -d '\"' | base64 --decode > ${CONTEXT}-key.pem
+   ~/.kube/kubectl config view -o json --raw --minify  | jq '.users[0].user["client-key-data"]' | tr -d '\"' | base64 --decode > ${CONTEXT}-key.pem
     export certcmd="$certcmd --key ${CONTEXT}-key.pem"
 fi
 
-export cadata=`(kubectl config view -o json --raw --minify  | jq '.clusters[0].cluster["certificate-authority-data"]' | tr -d '\"')`
+export cadata=`(~/.kube/kubectl config view -o json --raw --minify  | jq '.clusters[0].cluster["certificate-authority-data"]' | tr -d '\"')`
 
 if [ "$cadata" != "null" ] && [ "$cadata" != "" ];
 then
-    kubectl config view -o json --raw --minify  | jq '.clusters[0].cluster["certificate-authority-data"]' | tr -d '\"' | base64 --decode > ${CONTEXT}-ca.pem
+    ~/.kube/kubectl config view -o json --raw --minify  | jq '.clusters[0].cluster["certificate-authority-data"]' | tr -d '\"' | base64 --decode > ${CONTEXT}-ca.pem
     export certcmd="$certcmd --cacert ${CONTEXT}-ca.pem"
 fi
 
-#set -x
-
 #print some useful data for folks to check on their service later
-echo "Deploying service to ${https}://${kubeuser}:${kubepass}@${kubeip}/api/v1/proxy/namespaces/${kubenamespace}/services/${SERVICENAME}"
-echo "Monitor your service at ${https}://${kubeuser}:${kubepass}@${kubeip}/api/v1/proxy/namespaces/kube-system/services/kibana-logging/?#/discover?_a=(columns:!(log),filters:!(),index:'logstash-*',interval:auto,query:(query_string:(analyze_wildcard:!t,query:'tag:%22kubernetes.${SERVICENAME}*%22')),sort:!('@timestamp',asc))"
+
+# Ensure configmaps are applied
+~/.kube/kubectl apply -f kube/${CONFIGMAP}.configmap.yml
+
+echo "Ensure Deployment"
+# Ensure deployment exists, create it if not
+~/.kube/kubectl get deployment ${SERVICENAME} &>/dev/null
+if [ $? -ne 0 ]
+then
+  echo "Deployment does not exist yet, creating it"
+  ~/.kube/kubectl create -f kube/${DEPLOYMENT}.deployment.yml --record
+else
+  echo "Deployment already exists, continuing"
+fi
 
 if [ "${ROLLING}" = "rolling" ]
 then
+  echo "rolling deploy"
   # perform a rolling update by updating the Deployment
-  sed 's/:latest/':${CIRCLE_SHA1}'/g;' ${DEPLOYDIR}/${SERVICENAME}.deployment.yml > ${DEPLOYDIR}/${SERVICENAME}.deployment.${CIRCLE_SHA1}.yml
-  kubectl apply -f ${DEPLOYDIR}/${SERVICENAME}.deployment.${CIRCLE_SHA1}.yml
+  sed -e "s|${IMAGE_REPO}:${IMAGE_TAG}|${IMAGE_REPO}:${BUILD}|g;" kube/${DEPLOYMENT}.deployment.yml > kube/${DEPLOYMENT}.deployment.${BUILD}.yml
+  ~/.kube/kubectl apply -f kube/${DEPLOYMENT}.deployment.${BUILD}.yml
 fi
 
-# wait for services to start
-# sleep 30
-
+script/timeout.sh -t ${DEPLOY_TIMEOUT} script/verify-deployment.sh ${CONTEXT}
 result=$?
 if [ "$result" == "143" ] ; then
     echo "------- DEPLOYMENT TIMEOUT FAIL --------"
