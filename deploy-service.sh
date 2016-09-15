@@ -94,7 +94,7 @@ then
   ~/.kube/kubectl apply -f kube/${DEPLOYMENT}.deployment.${BUILD}.yml
 fi
 
-script/timeout.sh -t ${DEPLOY_TIMEOUT} script/verify-deployment.sh ${CONTEXT}
+$DIR/timeout.sh -t ${DEPLOY_TIMEOUT} $DIR/verify-deployment.sh ${CONTEXT}
 result=$?
 if [ "$result" == "143" ] ; then
     echo "------- DEPLOYMENT TIMEOUT FAIL --------"
