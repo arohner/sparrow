@@ -1,15 +1,15 @@
 {
-  "name": "sparrow",
-  "version": "0.0.1",
-  "description": "Deployment framework and scripts for Kubernetes",
+    "name": "sparrow",
+    "version": "0.0.1",
+    "description": "Deployment framework and scripts for Kubernetes",
 
-  "bin":
-  {
-    "deploy-service": "deploy-service.sh",
-    "docker-pull": "docker-pull.sh",
-    "docker-push": "docker-push.sh",
-    "prepare-kubectl": "prepare-kubectl.sh",
-    "run-migrations": "run-migrations.sh"
-  }
-
+    "bin":
+    {
+	"deploy-service": "deploy-service.sh",
+	"docker-pull": "docker-pull.sh",
+	"docker-push": "docker-push.sh",
+	"prepare-kubectl": "prepare-kubectl.sh",
+	"run-migrations": "run-migrations.sh",
+	"verify-deployment": "verify-deployment.sh",
+    }
 }
