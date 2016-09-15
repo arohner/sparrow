@@ -29,6 +29,7 @@
 
 set -euo pipefail
 
+DEPLOY_TIMEOUT=${DEPLOY_TIMEOUT:-300}
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 CONTEXT="$1"
 ROLLING=$(echo "${2:0:7}" | tr '[:upper:]' '[:lower:]')
