@@ -10,6 +10,7 @@
 	"docker-push": "docker-push.sh",
 	"prepare-kubectl": "prepare-kubectl.sh",
 	"run-migrations": "run-migrations.sh",
-	"verify-deployment": "verify-deployment.sh"
+	"verify-deployment": "verify-deployment.sh",
+	"timeout": "timeout.sh"
     }
 }
